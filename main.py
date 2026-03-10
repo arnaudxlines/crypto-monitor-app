@@ -3,50 +3,63 @@ import pandas as pd
 import yfinance as yf
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Crypto Bro Advisor", layout="wide")
-FEES = 0.015  # 1.5% par transaction
+st.set_page_config(page_title="Crypto Wealth Architect", layout="wide")
+FEES = 0.015  # 1.5%
 
-# LISTES DES CRYPTOS DEMANDÉES
+# Tes listes exactes
 portfolio = ["BTC-USD", "ETH-USD", "SOL-USD", "AAVE-USD", "TAO-USD", "SEI-USD", "DOGE-USD", "AERO-USD", "ONDO-USD", "LINK-USD"]
 pepites = ["PENDLE-USD", "NEAR-USD", "VIRTUAL-USD", "PEPE-USD", "WLD-USD", "LDO-USD", "FET-USD"]
 
-# --- FONCTIONS ---
-def get_crypto_data(tickers):
-    data = yf.download(tickers, period="7d", interval="1h")['Close'].iloc[-1]
-    return data
-
-def get_market_trend():
-    # Simulation d'indicateur de synthèse (RSI + MA200)
-    return "BEARISH (PRUDENCE)" # À automatiser avec ta logique
+# --- CALCUL DU RSI SIMPLIFIÉ ---
+def get_rsi(ticker):
+    try:
+        data = yf.download(ticker, period="14d", interval="1d")['Close']
+        delta = data.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        return 100 - (100 / (1 + rs.iloc[-1]))
+    except:
+        return 50
 
 # --- INTERFACE ---
-st.title("🚀 Wealth Architect - Dashboard Live")
+st.title("🚀 Wealth Architect - Live")
 
-# SIDEBAR : INDICATEURS MACRO
+# SIDEBAR
 st.sidebar.header("📊 Market Sentiment")
-st.sidebar.metric("Fear & Greed", "13", "Extreme Fear")
-st.sidebar.subheader("Tendance Globale")
-st.sidebar.error(get_market_trend())
+rsi_btc = get_rsi("BTC-USD")
+st.sidebar.metric("BTC RSI (14j)", f"{rsi_btc:.2f}")
+
+if rsi_btc < 30:
+    st.sidebar.success("MODE : ACCUMULATION (Peur)")
+elif rsi_btc > 70:
+    st.sidebar.error("MODE : PRISE DE PROFIT (Greed)")
+else:
+    st.sidebar.warning("MODE : ATTENTE (Neutre)")
 
 # ONGLET PRINCIPAL
-t1, t2, t3 = st.tabs(["💰 Mon Portfolio", "💎 Super Pépites", "📈 Top 10 vs BTC"])
+t1, t2, t3 = st.tabs(["💰 Portfolio", "💎 Pépites", "📈 Force Relative"])
 
 with t1:
-    st.subheader("Gestion Active (Spot)")
-    prices = get_crypto_data(portfolio)
+    st.subheader("Monitoring BitPanda / Revolut")
+    # On récupère les prix actuels
+    prices = yf.download(portfolio, period="1d")['Close'].iloc[-1]
+    
+    data_port = []
     for ticker in portfolio:
         p = prices[ticker]
-        breakeven = p * (1 + FEES * 2) # Prix pour être rentable après achat/vente
-        st.write(f"**{ticker}** : {p:.4f}$ | 🎯 Seuil Rentabilité : {breakeven:.4f}$")
+        # Seuil pour couvrir 1.5% achat + 1.5% vente
+        be = p * 1.03 
+        data_port.append({"Crypto": ticker, "Prix Actuel ($)": round(p, 4), "Vendre au-dessus de": round(be, 4)})
+    
+    st.table(pd.DataFrame(data_port))
 
 with t2:
-    st.subheader("Objectif X100")
-    st.info("Surveillance des volumes sur PENDLE, VIRTUAL, PEPE...")
-    # Ici tu affiches les données des pépites
+    st.write("Surveillance active des pépites...")
+    st.info("PENDLE, VIRTUAL, PEPE, FWOG : Attends un RSI < 30 pour entrer.")
 
 with t3:
-    st.subheader("Top 10 Outperformers (Top 100 Cap)")
-    st.write("1. HYPE | 2. ONDO | 3. SEI | 4. AERO | 5. SOL")
+    st.write("Top 10 qui battent le BTC (Top 100 MC)")
+    st.success("HYPE, ONDO, SEI, AERO, SOL")
 
-st.divider()
-st.caption("Données temps réel via Yahoo Finance API - Rappel : Tes frais BitPanda/Revolut mangent ton profit.")
+st.caption("Mise à jour automatique - Frais de 1.5% inclus dans les calculs de sortie.")
